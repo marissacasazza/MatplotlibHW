@@ -1,0 +1,85 @@
+# Dependencies and Setup
+import matplotlib.pyplot as plt
+import pandas as pd
+import scipy.stats as st
+import numpy as np
+
+# Study data files
+mouse_metadata = "data/Mouse_metadata.csv"
+study_results = "data/Study_results.csv"
+
+# Read the mouse data and the study results
+mouse_metadata = pd.read_csv(mouse_metadata)
+study_results = pd.read_csv(study_results)
+
+
+# Combine the data into a single dataset
+combined_df = pd.merge(mouse_metadata, study_results,
+                                how='inner', on='Mouse ID')
+combined_df.head()
+
+# Generate a summary statistics table of mean, median, variance, standard deviation, and
+# SEM of the tumor volume for each regimen
+grouping = combined_df.groupby('Drug Regimen')
+mean = grouping.mean()['Tumor Volume (mm3)']
+median = grouping.median()['Tumor Volume (mm3)']
+standdev = grouping.std()['Tumor Volume (mm3)']
+variance = grouping.var()['Tumor Volume (mm3)']
+sem = grouping.sem()['Tumor Volume (mm3)']
+
+#Data Frame
+summary = pd.DataFrame({
+    'mean': mean,
+    'median': median,
+    'standard deviation': standdev,
+    'variance': variance,
+    'sem': sem
+})
+
+summary
+
+
+# Generate a bar plot showing number of data points for each treatment regimen using pandas
+count = combined_df['Drug Regimen'].value_counts()
+count.plot(kind = 'bar')
+
+x_axis = np.arange(len(combined_df))
+tick_locations = [value for value in x_axis]
+
+#Create  pie plot
+count = combined_df['Sex'].value_counts()
+count.plot(kind = 'pie')
+
+# Calculate the final tumor volume of each mouse across four of the most promising treatment regimens. 
+# Calculate the IQR and quantitatively determine if there are any potential outliers. 
+
+mouse = combined_df.groupby('Mouse ID')
+timepoint = mouse.max()['Timepoint'] 
+timepoint = timepoint.reset_index()
+box_df = timepoint.merge(combined_df,
+                                how='left', on=['Mouse ID', 'Timepoint'])
+
+#Capomulin, Ramicane, Ketapril, Naftisol
+capomulin = box_df.loc[box_df["Drug Regimen"] == 'Capomulin', 'Tumor Volume (mm3)']
+ramicane = box_df.loc[box_df["Drug Regimen"] == 'Ramicane', 'Tumor Volume (mm3)' ]
+ketapril = box_df.loc[box_df["Drug Regimen"] == 'Ketapril','Tumor Volume (mm3)' ]
+naftisol = box_df.loc[box_df["Drug Regimen"] == 'Naftisol', 'Tumor Volume (mm3)']
+
+
+#Outliers - statistics
+def calc_quartiles(drug):
+    quartiles = drug.quantile([.25,.5,.75])
+    lowerq = quartiles[0.25]
+    upperq = quartiles[0.75]
+    iqr = upperq-lowerq
+
+    lower_bound = lowerq - (1.5*iqr)
+    upper_bound = upperq + (1.5*iqr)
+    print(f"Values below {round(lower_bound, 1)} could be outliers.")
+    print(f"Values above {round(upper_bound, 1)} could be outliers.")
+calc_quartiles(capomulin)
+
+# Generate a box plot of the final tumor volume of each mouse across four regimens of interest
+plt.boxplot([capomulin, ramicane, ketapril, naftisol], labels = ['capomulin', 'ramicane', 'ketapril', 'naftisol'])
+
+plt.show()
